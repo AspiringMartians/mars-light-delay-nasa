@@ -12,17 +12,20 @@
       color: #333;
       padding: 0em;
       margin: 0;
-      text-align: left;
+      text-align: center;
       max-width: 100%;
       word-wrap: break-word;
       box-sizing: border-box;
     }
 
     .distance, .delay {
-      font-weight: bold;
       font-size: 1.1rem;
       margin-bottom: 0.4em;
       line-height: 1.3;
+    }
+
+    .bold {
+      font-weight: bold;
     }
 
     em {
@@ -48,32 +51,77 @@
 </head>
 <body>
   <div class="distance">
-    Mars is currently <span id="distance-km">...</span> km away.
+    Mars is currently <span class="bold" id="distance-km">...</span> km away.
   </div>
   <div class="delay">
-    Please expect a delay of at least: <span id="light-delay">...</span>
+    Please expect a response delay of at least: <span class="bold" id="light-delay">...</span>
   </div>
 
   <script>
+    let previousKm = null;
+    let previousMinutes = null;
+    let previousSeconds = null;
+
+    function animateValue(start, end, duration, stepCallback, formatFn) {
+      const startTime = performance.now();
+
+      function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const currentValue = start + (end - start) * progress;
+        stepCallback(formatFn(currentValue));
+
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        }
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    function formatNumberWithCommas(num) {
+      return Math.round(num).toLocaleString();
+    }
+
     async function updateMarsInfo() {
       try {
         const res = await fetch('https://marslighttimenasa.netlify.app/.netlify/functions/mars-light-time');
         const data = await res.json();
 
-        const km = Number(data.distanceKm).toLocaleString();
+        const km = Number(data.distanceKm);
+        let minutes = data.lightTime.minutes * 2;
+        let seconds = parseFloat(data.lightTime.seconds) * 2;
 
-        let totalMinutes = data.lightTime.minutes * 2;
-        let totalSeconds = parseFloat(data.lightTime.seconds) * 2;
-
-        if (totalSeconds >= 60) {
-          totalMinutes += Math.floor(totalSeconds / 60);
-          totalSeconds = totalSeconds % 60;
+        if (seconds >= 60) {
+          minutes += Math.floor(seconds / 60);
+          seconds = seconds % 60;
         }
 
-        const roundedSeconds = totalSeconds.toFixed(2);
+        // Animate distance
+        const distSpan = document.getElementById('distance-km');
+        if (previousKm !== null) {
+          animateValue(previousKm, km, 1000, val => distSpan.textContent = val, formatNumberWithCommas);
+        } else {
+          distSpan.textContent = formatNumberWithCommas(km);
+        }
+        previousKm = km;
 
-        document.getElementById('distance-km').textContent = km;
-        document.getElementById('light-delay').textContent = `${totalMinutes}m ${roundedSeconds}s`;
+        // Animate time delay
+        const delaySpan = document.getElementById('light-delay');
+        if (previousMinutes !== null && previousSeconds !== null) {
+          const totalOld = previousMinutes * 60 + previousSeconds;
+          const totalNew = minutes * 60 + seconds;
+
+          animateValue(totalOld, totalNew, 1000, val => {
+            const m = Math.floor(val / 60);
+            const s = (val % 60).toFixed(2);
+            delaySpan.textContent = `${m}m ${s}s`;
+          }, v => v);
+        } else {
+          delaySpan.textContent = `${minutes}m ${seconds.toFixed(2)}s`;
+        }
+        previousMinutes = minutes;
+        previousSeconds = seconds;
       } catch (err) {
         document.getElementById('distance-km').textContent = 'an unknown distance';
         document.getElementById('light-delay').textContent = 'a little while';
@@ -81,6 +129,7 @@
     }
 
     updateMarsInfo();
+    setInterval(updateMarsInfo, 60000); // Refresh every 60s
   </script>
 </body>
 </html>
