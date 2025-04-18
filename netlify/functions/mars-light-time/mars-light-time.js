@@ -13,25 +13,17 @@ exports.handler = async function () {
 
       const response = await fetch(url);
       const text = await response.text();
+
       const lines = text.split('\n');
       const dataStart = lines.findIndex(line => line.trim() === '$$SOE') + 1;
       const dataEnd = lines.findIndex(line => line.trim() === '$$EOE');
 
       if (dataStart < 1 || dataEnd <= dataStart) {
-  return {
-    statusCode: 500,
-    headers: { "Access-Control-Allow-Origin": "*" },
-    body: JSON.stringify({
-      error: "No vector data returned from Horizons",
-      rawResponse: text
-    })
-  };
-}
-
+        throw new Error("No vector data returned from Horizons:\n" + text);
       }
 
       const vectorLine = lines[dataStart]?.trim();
-      if (!vectorLine) throw new Error("No vector data found in Horizons response.");
+      if (!vectorLine) throw new Error("No vector line found in Horizons response.");
 
       const parts = vectorLine.split(/\s+/);
       if (parts.length < 5) throw new Error(`Malformed vector line: ${vectorLine}`);
@@ -42,8 +34,8 @@ exports.handler = async function () {
       return { x, y, z };
     };
 
-    const earth = await fetchPosition(399);
-    const mars = await fetchPosition(499);
+    const earth = await fetchPosition(399); // Earth
+    const mars = await fetchPosition(499);  // Mars
 
     const dx = mars.x - earth.x;
     const dy = mars.y - earth.y;
