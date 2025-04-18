@@ -12,7 +12,7 @@
       color: #333;
       padding: 1em;
       margin: 0;
-      text-align: center;
+      text-align: left;
     }
     .distance, .delay {
       font-weight: bold;
@@ -30,9 +30,8 @@
     Mars is currently <span id="distance-km">...</span> km away.
   </div>
   <div class="delay">
-    Round-trip light delay: <span id="light-delay">...</span>
+    Please expect a delay of at least: <span id="light-delay">...</span>
   </div>
-  <em>(We’ll reply faster — but the metaphor still holds.)</em>
 
   <script>
     async function updateMarsInfo() {
