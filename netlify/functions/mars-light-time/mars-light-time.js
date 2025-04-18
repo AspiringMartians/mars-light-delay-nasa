@@ -13,12 +13,26 @@ exports.handler = async function () {
       const lines = text.split('\n');
       const dataStart = lines.findIndex(line => line.trim() === '$$SOE') + 1;
       const dataEnd = lines.findIndex(line => line.trim() === '$$EOE');
-      const vectorLine = lines[dataStart];
+if (dataStart < 1 || dataEnd <= dataStart) {
+  throw new Error(`Invalid vector format. START=${dataStart}, END=${dataEnd}`);
+}
 
-      const parts = vectorLine.trim().split(/\s+/);
-      const x = parseFloat(parts[2]);
-      const y = parseFloat(parts[3]);
-      const z = parseFloat(parts[4]);
+const vectorLine = lines[dataStart]?.trim();
+
+if (!vectorLine) {
+  throw new Error("No vector line found in Horizons response.");
+}
+
+const parts = vectorLine.split(/\s+/);
+
+if (parts.length < 5) {
+  throw new Error(`Vector line malformed: ${vectorLine}`);
+}
+
+const x = parseFloat(parts[2]);
+const y = parseFloat(parts[3]);
+const z = parseFloat(parts[4]);
+
 
       return { x, y, z };
     };
