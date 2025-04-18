@@ -14,7 +14,7 @@
       font-size: 1rem;
       border: 2px solid #ed2534;
       border-radius: 8px;
-      max-width: 360px;
+      max-width: 400px;
       margin: auto;
     }
     .distance {
@@ -38,12 +38,12 @@
   <div class="delay">
     Round-trip light delay: <span id="light-delay">...</span>
   </div>
-  <em>(Faster than Martian mail.)</em>
+  <em>(We’ll reply faster — but the metaphor still holds.)</em>
 
   <script>
     async function updateMarsInfo() {
       try {
-        const res = await fetch('/.netlify/functions/mars-light-time');
+        const res = await fetch('https://marslighttimenasa.netlify.app/.netlify/functions/mars-light-time');
         const data = await res.json();
 
         const km = data.distanceKm;
@@ -53,8 +53,8 @@
         document.getElementById('distance-km').textContent = km;
         document.getElementById('light-delay').textContent = `${min}m ${sec}s`;
       } catch (err) {
-        document.getElementById('distance-km').textContent = 'unknown';
-        document.getElementById('light-delay').textContent = 'temporarily unavailable';
+        document.getElementById('distance-km').textContent = 'an unknown distance';
+        document.getElementById('light-delay').textContent = 'a little while';
       }
     }
 
@@ -62,4 +62,3 @@
   </script>
 </body>
 </html>
-
