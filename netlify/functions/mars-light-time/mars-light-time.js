@@ -18,7 +18,16 @@ exports.handler = async function () {
       const dataEnd = lines.findIndex(line => line.trim() === '$$EOE');
 
       if (dataStart < 1 || dataEnd <= dataStart) {
-        throw new Error(`Horizons response missing vector data.\n${text}`);
+  return {
+    statusCode: 500,
+    headers: { "Access-Control-Allow-Origin": "*" },
+    body: JSON.stringify({
+      error: "No vector data returned from Horizons",
+      rawResponse: text
+    })
+  };
+}
+
       }
 
       const vectorLine = lines[dataStart]?.trim();
