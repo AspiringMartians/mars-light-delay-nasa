@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mars Light Delay</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0b0e1a;
+      color: #ed2534;
+      padding: 1em;
+      text-align: center;
+      font-size: 1rem;
+      border: 2px solid #ed2534;
+      border-radius: 8px;
+      max-width: 360px;
+      margin: auto;
+    }
+    .distance {
+      font-size: 1.2rem;
+      margin-bottom: 0.5em;
+    }
+    .delay {
+      font-size: 1.1rem;
+      opacity: 0.85;
+    }
+    em {
+      font-size: 0.85rem;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="distance">
+    Mars is currently <span id="distance-km">...</span> km away.
+  </div>
+  <div class="delay">
+    Round-trip light delay: <span id="light-delay">...</span>
+  </div>
+  <em>(Faster than Martian mail.)</em>
+
+  <script>
+    async function updateMarsInfo() {
+      try {
+        const res = await fetch('/.netlify/functions/mars-light-time');
+        const data = await res.json();
+
+        const km = data.distanceKm;
+        const min = data.lightTime.minutes * 2;
+        const sec = (parseFloat(data.lightTime.seconds) * 2).toFixed(2);
+
+        document.getElementById('distance-km').textContent = km;
+        document.getElementById('light-delay').textContent = `${min}m ${sec}s`;
+      } catch (err) {
+        document.getElementById('distance-km').textContent = 'unknown';
+        document.getElementById('light-delay').textContent = 'temporarily unavailable';
+      }
+    }
+
+    updateMarsInfo();
+  </script>
+</body>
+</html>
