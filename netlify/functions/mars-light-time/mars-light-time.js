@@ -1,19 +1,18 @@
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
 let cache = {
   timestamp: 0,
-  data: null
+  data: null,
 };
 
 exports.handler = async function () {
   const now = Date.now();
 
-  // Use cached result if less than 60 seconds old
   if (cache.data && now - cache.timestamp < 60000) {
     return {
       statusCode: 200,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify(cache.data)
+      body: JSON.stringify(cache.data),
     };
   }
 
@@ -22,7 +21,12 @@ exports.handler = async function () {
     const plus1 = new Date(nowDate.getTime() + 60 * 1000);
 
     const format = (d) =>
-      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(
+        2,
+        "0"
+      )}-${String(d.getUTCDate()).padStart(2, "0")} ${String(
+        d.getUTCHours()
+      ).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 
     const startTime = format(nowDate);
     const stopTime = format(plus1);
@@ -32,25 +36,37 @@ exports.handler = async function () {
     const response = await fetch(url);
     const text = await response.text();
 
-    const findLastValue = (pattern) => {
-      const matches = [...text.matchAll(pattern)];
-      return matches.length ? parseFloat(matches[matches.length - 1][1]) : null;
-    };
+    // Extract block between $$SOE and $$EOE
+    const blockMatch = text.match(/\$\$SOE([\s\S]*?)\$\$EOE/);
+    if (!blockMatch) throw new Error("Vector block not found in response.");
 
-    const ltSec = findLastValue(/LT\s*=\s*([\d.]+)/g);
-    const rgKm = findLastValue(/RG\s*=\s*([\d.]+)/g);
+    const vectorBlock = blockMatch[1];
+    const lines = vectorBlock.trim().split("\n");
 
-    if (!ltSec || !rgKm) {
-      throw new Error("Could not extract final LT or RG from response:\n" + text);
+    let lastLT = null;
+    let lastRG = null;
+
+    for (let line of lines) {
+      if (line.includes("LT=") && line.includes("RG=")) {
+        const ltMatch = line.match(/LT=\s*([\d.]+)/);
+        const rgMatch = line.match(/RG=\s*([\d.]+)/);
+        if (ltMatch && rgMatch) {
+          lastLT = parseFloat(ltMatch[1]);
+          lastRG = parseFloat(rgMatch[1]);
+        }
+      }
     }
 
-    // Do not double LT — we're showing one-way light time only
-    const minutes = Math.floor(ltSec / 60);
-    const seconds = (ltSec % 60).toFixed(2);
+    if (!lastLT || !lastRG) {
+      throw new Error("Could not extract LT and RG from parsed vector block.");
+    }
+
+    const minutes = Math.floor(lastLT / 60);
+    const seconds = (lastLT % 60).toFixed(2);
 
     const result = {
       lightTime: { minutes, seconds },
-      distanceKm: rgKm.toFixed(0)
+      distanceKm: lastRG.toFixed(0),
     };
 
     cache.data = result;
@@ -59,7 +75,7 @@ exports.handler = async function () {
     return {
       statusCode: 200,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify(result)
+      body: JSON.stringify(result),
     };
   } catch (err) {
     return {
@@ -67,8 +83,8 @@ exports.handler = async function () {
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         error: "Something went wrong",
-        message: err.message
-      })
+        message: err.message,
+      }),
     };
   }
 };
