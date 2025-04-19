@@ -50,7 +50,7 @@ exports.handler = async function () {
     const ltSec = parseFloat(ltMatch[1]);
     const rgKm = parseFloat(rgMatch[1]);
 
-    const roundTripSec = ltSec * 2;
+    const roundTripSec = ltSec;
     const minutes = Math.floor(roundTripSec / 60);
     const seconds = (roundTripSec % 60).toFixed(2);
 
