@@ -31,18 +31,17 @@ exports.handler = async function () {
     const response = await fetch(url);
     const text = await response.text();
 
-    const ltMatches = text.match(/LT\s*=\s*([\d.]+)/g);
-    const rgMatches = text.match(/RG\s*=\s*([\d.]+)/g);
+    const findLastValue = (pattern) => {
+      const matches = [...text.matchAll(pattern)];
+      return matches.length ? parseFloat(matches[matches.length - 1][1]) : null;
+    };
 
-    const ltMatch = ltMatches ? ltMatches[ltMatches.length - 1].match(/([\d.]+)/) : null;
-    const rgMatch = rgMatches ? rgMatches[rgMatches.length - 1].match(/([\d.]+)/) : null;
+    const ltSec = findLastValue(/LT\s*=\s*([\d.]+)/);
+    const rgKm = findLastValue(/RG\s*=\s*([\d.]+)/);
 
-    if (!ltMatch || !rgMatch) {
-      throw new Error("Could not extract LT or RG from response:\n" + text);
+    if (!ltSec || !rgKm) {
+      throw new Error("Could not extract final LT or RG from response:\n" + text);
     }
-
-    const ltSec = parseFloat(ltMatch[1]);  // 🚫 No *2 here
-    const rgKm = parseFloat(rgMatch[1]);
 
     const minutes = Math.floor(ltSec / 60);
     const seconds = (ltSec % 60).toFixed(2);
