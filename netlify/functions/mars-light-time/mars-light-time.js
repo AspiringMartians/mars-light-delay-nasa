@@ -36,37 +36,40 @@ exports.handler = async function () {
     const response = await fetch(url);
     const text = await response.text();
 
-    // Extract block between $$SOE and $$EOE
+    // Extract $$SOE to $$EOE block
     const blockMatch = text.match(/\$\$SOE([\s\S]*?)\$\$EOE/);
     if (!blockMatch) throw new Error("Vector block not found in response.");
 
-    const vectorBlock = blockMatch[1];
-    const lines = vectorBlock.trim().split("\n");
+    const vectorBlock = blockMatch[1].trim();
+    const lines = vectorBlock.split("\n");
 
-    let lastLT = null;
-    let lastRG = null;
+    let lt = null;
+    let rg = null;
 
-    for (let line of lines) {
+    for (const line of lines.reverse()) {
       if (line.includes("LT=") && line.includes("RG=")) {
         const ltMatch = line.match(/LT=\s*([\d.]+)/);
         const rgMatch = line.match(/RG=\s*([\d.]+)/);
-        if (ltMatch && rgMatch) {
-          lastLT = parseFloat(ltMatch[1]);
-          lastRG = parseFloat(rgMatch[1]);
+
+        // ✅ Check if RG is realistic (over 1 million km)
+        if (ltMatch && rgMatch && parseFloat(rgMatch[1]) > 1000000) {
+          lt = parseFloat(ltMatch[1]);
+          rg = parseFloat(rgMatch[1]);
+          break;
         }
       }
     }
 
-    if (!lastLT || !lastRG) {
-      throw new Error("Could not extract LT and RG from parsed vector block.");
+    if (!lt || !rg) {
+      throw new Error("Could not extract a valid Mars LT or RG.");
     }
 
-    const minutes = Math.floor(lastLT / 60);
-    const seconds = (lastLT % 60).toFixed(2);
+    const minutes = Math.floor(lt / 60);
+    const seconds = (lt % 60).toFixed(2);
 
     const result = {
       lightTime: { minutes, seconds },
-      distanceKm: lastRG.toFixed(0),
+      distanceKm: rg.toFixed(0),
     };
 
     cache.data = result;
