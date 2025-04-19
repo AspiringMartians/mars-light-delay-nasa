@@ -18,7 +18,7 @@ exports.handler = async function () {
 
   try {
     const nowDate = new Date();
-    const plus1 = new Date(nowDate.getTime() + 60 * 1000); // Add 1 min
+    const plus1 = new Date(nowDate.getTime() + 60 * 1000);
 
     const format = (d) =>
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
@@ -31,12 +31,21 @@ exports.handler = async function () {
     const response = await fetch(url);
     const text = await response.text();
 
-    // Tolerant regex parsing
-    const ltMatch = text.match(/LT\s*=\s*([\d.]+)/);
-    const rgMatch = text.match(/RG\s*=\s*([\d.]+)/);
+    // Only parse the FIRST ephemeris block after $$SOE
+    const soeIndex = text.indexOf("$$SOE");
+    const eoeIndex = text.indexOf("$$EOE");
+
+    if (soeIndex === -1 || eoeIndex === -1) {
+      throw new Error("Could not find ephemeris block in response");
+    }
+
+    const dataBlock = text.slice(soeIndex, eoeIndex);
+
+    const ltMatch = dataBlock.match(/LT\s*=\s*([\d.E+-]+)/);
+    const rgMatch = dataBlock.match(/RG\s*=\s*([\d.E+-]+)/);
 
     if (!ltMatch || !rgMatch) {
-      throw new Error("Could not extract LT or RG from response:\n" + text);
+      throw new Error("Could not extract LT or RG from data block:\n" + dataBlock);
     }
 
     const ltSec = parseFloat(ltMatch[1]);
