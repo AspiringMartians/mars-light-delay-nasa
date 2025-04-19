@@ -1,62 +1,71 @@
 const fetch = require('node-fetch');
 
+// In-memory cache (shared across warm invocations)
+let cache = {
+  timestamp: 0,
+  data: null
+};
+
 exports.handler = async function () {
+  const now = Date.now();
+
+  // If cached data is less than 60 seconds old, return it
+  if (cache.data && now - cache.timestamp < 60000) {
+    return {
+      statusCode: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify(cache.data)
+    };
+  }
+
   try {
-    const today = new Date();
-    const yyyy = today.getUTCFullYear();
-    const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(today.getUTCDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
+    // Get current UTC time
+    const nowDate = new Date();
+    const yyyy = nowDate.getUTCFullYear();
+    const mm = String(nowDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(nowDate.getUTCDate()).padStart(2, '0');
+    const hh = String(nowDate.getUTCHours()).padStart(2, '0');
+    const min = String(nowDate.getUTCMinutes()).padStart(2, '0');
+    const dateTimeStr = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
 
-    const fetchXYZ = async (bodyId) => {
-      const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='${bodyId}'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500'&START_TIME='${dateStr} 00:00'&STOP_TIME='${dateStr} 00:01'&STEP_SIZE='1 m'`;
-      const response = await fetch(url);
-      const text = await response.text();
+    // Build NASA Horizons API URL
+    const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='499'&CENTER='399'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&START_TIME='${dateTimeStr}'&STOP_TIME='${dateTimeStr}'&STEP_SIZE='1 m'`;
 
-      const xMatch = text.match(/X =\s*([-\d.E+]+)/);
-      const yMatch = text.match(/Y =\s*([-\d.E+]+)/);
-      const zMatch = text.match(/Z =\s*([-\d.E+]+)/);
+    const response = await fetch(url);
+    const text = await response.text();
 
-      if (!xMatch || !yMatch || !zMatch) {
-        throw new Error("Could not extract X, Y, Z from response:\n" + text);
-      }
+    const ltMatch = text.match(/LT=\s*([\d.]+)/);
+    const rgMatch = text.match(/RG=\s*([\d.]+)/);
 
-      return {
-        x: parseFloat(xMatch[1]),
-        y: parseFloat(yMatch[1]),
-        z: parseFloat(zMatch[1])
-      };
+    if (!ltMatch || !rgMatch) {
+      throw new Error("Could not extract LT or RG from response:\n" + text);
+    }
+
+    const ltSec = parseFloat(ltMatch[1]);
+    const rgKm = parseFloat(rgMatch[1]);
+
+    const roundTripSec = ltSec * 2;
+    const minutes = Math.floor(roundTripSec / 60);
+    const seconds = (roundTripSec % 60).toFixed(2);
+
+    const result = {
+      lightTime: { minutes, seconds },
+      distanceKm: rgKm.toFixed(0)
     };
 
-    const mars = await fetchXYZ(499);
-    const earth = await fetchXYZ(399);
-
-    const dx = mars.x - earth.x;
-    const dy = mars.y - earth.y;
-    const dz = mars.z - earth.z;
-    const distanceKm = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-    const lightSpeed = 299792.458;
-    const totalSeconds = distanceKm / lightSpeed;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = (totalSeconds % 60).toFixed(2);
+    // Cache it
+    cache.data = result;
+    cache.timestamp = now;
 
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*"
-      },
-      body: JSON.stringify({
-        lightTime: { minutes, seconds },
-        distanceKm: distanceKm.toFixed(0)
-      })
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify(result)
     };
   } catch (err) {
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         error: "Something went wrong",
         message: err.message
