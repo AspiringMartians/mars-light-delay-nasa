@@ -31,29 +31,21 @@ exports.handler = async function () {
     const response = await fetch(url);
     const text = await response.text();
 
-    // Only parse the FIRST ephemeris block after $$SOE
-    const soeIndex = text.indexOf("$$SOE");
-    const eoeIndex = text.indexOf("$$EOE");
+    const ltMatches = text.match(/LT\s*=\s*([\d.]+)/g);
+    const rgMatches = text.match(/RG\s*=\s*([\d.]+)/g);
 
-    if (soeIndex === -1 || eoeIndex === -1) {
-      throw new Error("Could not find ephemeris block in response");
-    }
-
-    const dataBlock = text.slice(soeIndex, eoeIndex);
-
-    const ltMatch = dataBlock.match(/LT\s*=\s*([\d.E+-]+)/);
-    const rgMatch = dataBlock.match(/RG\s*=\s*([\d.E+-]+)/);
+    const ltMatch = ltMatches ? ltMatches[ltMatches.length - 1].match(/([\d.]+)/) : null;
+    const rgMatch = rgMatches ? rgMatches[rgMatches.length - 1].match(/([\d.]+)/) : null;
 
     if (!ltMatch || !rgMatch) {
-      throw new Error("Could not extract LT or RG from data block:\n" + dataBlock);
+      throw new Error("Could not extract LT or RG from response:\n" + text);
     }
 
-    const ltSec = parseFloat(ltMatch[1]);
+    const ltSec = parseFloat(ltMatch[1]);  // 🚫 No *2 here
     const rgKm = parseFloat(rgMatch[1]);
 
-    const roundTripSec = ltSec * 2;
-    const minutes = Math.floor(roundTripSec / 60);
-    const seconds = (roundTripSec % 60).toFixed(2);
+    const minutes = Math.floor(ltSec / 60);
+    const seconds = (ltSec % 60).toFixed(2);
 
     const result = {
       lightTime: { minutes, seconds },
