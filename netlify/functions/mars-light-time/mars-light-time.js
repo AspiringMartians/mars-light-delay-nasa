@@ -1,6 +1,5 @@
 const fetch = require('node-fetch');
 
-// In-memory cache (shared across warm invocations)
 let cache = {
   timestamp: 0,
   data: null
@@ -9,7 +8,6 @@ let cache = {
 exports.handler = async function () {
   const now = Date.now();
 
-  // If cached data is less than 60 seconds old, return it
   if (cache.data && now - cache.timestamp < 60000) {
     return {
       statusCode: 200,
@@ -19,23 +17,23 @@ exports.handler = async function () {
   }
 
   try {
-    // Get current UTC time
     const nowDate = new Date();
-    const yyyy = nowDate.getUTCFullYear();
-    const mm = String(nowDate.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(nowDate.getUTCDate()).padStart(2, '0');
-    const hh = String(nowDate.getUTCHours()).padStart(2, '0');
-    const min = String(nowDate.getUTCMinutes()).padStart(2, '0');
-    const dateTimeStr = `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+    const plus1 = new Date(nowDate.getTime() + 60 * 1000); // Add 1 min
 
-    // Build NASA Horizons API URL
-    const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='499'&CENTER='399'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&START_TIME='${dateTimeStr}'&STOP_TIME='${dateTimeStr}'&STEP_SIZE='1 m'`;
+    const format = (d) =>
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+
+    const startTime = format(nowDate);
+    const stopTime = format(plus1);
+
+    const url = `https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='499'&CENTER='399'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&START_TIME='${startTime}'&STOP_TIME='${stopTime}'&STEP_SIZE='1 m'`;
 
     const response = await fetch(url);
     const text = await response.text();
 
-    const ltMatch = text.match(/LT=\s*([\d.]+)/);
-    const rgMatch = text.match(/RG=\s*([\d.]+)/);
+    // Tolerant regex parsing
+    const ltMatch = text.match(/LT\s*=\s*([\d.]+)/);
+    const rgMatch = text.match(/RG\s*=\s*([\d.]+)/);
 
     if (!ltMatch || !rgMatch) {
       throw new Error("Could not extract LT or RG from response:\n" + text);
@@ -53,7 +51,6 @@ exports.handler = async function () {
       distanceKm: rgKm.toFixed(0)
     };
 
-    // Cache it
     cache.data = result;
     cache.timestamp = now;
 
