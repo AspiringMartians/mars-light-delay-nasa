@@ -8,6 +8,7 @@ let cache = {
 exports.handler = async function () {
   const now = Date.now();
 
+  // Use cached result if less than 60 seconds old
   if (cache.data && now - cache.timestamp < 60000) {
     return {
       statusCode: 200,
@@ -36,13 +37,14 @@ exports.handler = async function () {
       return matches.length ? parseFloat(matches[matches.length - 1][1]) : null;
     };
 
-    const ltSec = findLastValue(/LT\s*=\s*([\d.]+)/);
-    const rgKm = findLastValue(/RG\s*=\s*([\d.]+)/);
+    const ltSec = findLastValue(/LT\s*=\s*([\d.]+)/g);
+    const rgKm = findLastValue(/RG\s*=\s*([\d.]+)/g);
 
     if (!ltSec || !rgKm) {
       throw new Error("Could not extract final LT or RG from response:\n" + text);
     }
 
+    // Do not double LT — we're showing one-way light time only
     const minutes = Math.floor(ltSec / 60);
     const seconds = (ltSec % 60).toFixed(2);
 
